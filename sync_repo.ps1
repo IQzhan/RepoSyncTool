@@ -31,18 +31,21 @@ foreach ($repo in $config.repositories) {
             }
             if ($removeOriginalGit -eq 'true') {
                 # Remove '.git' folder
-                Remove-Item -Path $gitPath -Recurse -Force
+                Remove-Item -Path $gitPath -Recurse -Force -ErrorAction Ignore
             }
             if ($downloadNewGit -eq 'true') {
                 # Will create 'temp_git' as temp folder for matiain '.git' folder whitch clone from remote
                 $tempPath = Join-Path $targetDir "temp_git"
+                if (Test-Path $tempPath) {
+                    Remove-Item -Path $tempPath -Recurse -Force -ErrorAction Ignore
+                }
                 # Clone from remote to 'temp_git', '--no-checkout' makes sure only '.git' folder will be create
                 git clone --no-checkout $repo.url $tempPath
                 # Move this new '.git' folder to $targetDir
                 $tempPathGit = Join-Path $tempPath ".git"
                 Move-Item -Path $tempPathGit -Destination $targetDir
                 # Remove 'temp_git' folder
-                Remove-Item -Path $tempPath -Recurse -Force
+                Remove-Item -Path $tempPath -Recurse -Force -ErrorAction Ignore
             }
         }
         else {
