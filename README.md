@@ -1,21 +1,31 @@
 # How to use
-Write into sync_repo.json like this:
+Create a json file named '\<config_name\>.json'
 ```json
 {
-    "repositories": [
-        {
-            "type": "git",
-            "url": "git url",
-            "path": "relative path",
-            "branch": "branch or tag"
-        },
-        {
-            "type": "svn",
-            "url": "svn url",
-            "path": "relative path",
-            "branch": "revision"
-        }
-    ]
+    "path" : "<repositories config files path>",
+    "prefix" : "<prefix of repositories config filenames>"
 }
 ```
-Then execute sync_repo.ps1
+
+Create repositories config files in '\<path\>' named '\<prefix\>\<name\>.json'
+```json
+[
+    {
+        "type": "git",
+        "url": "<git url>",
+        "path": "<relative or absolute local path>",
+        "branch": "<branch or tag name>",
+        "version": <integer as version>
+    },
+    {
+        "type": "svn",
+        "url": "<svn url>",
+        "path": "<relative or absolute local path>",
+        "version": <integer as version>
+    }
+]
+```
+Then execute script.
+```cmd
+python sync_repo.py <config_name>.json
+```
