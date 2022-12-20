@@ -70,6 +70,14 @@ def ReadStartConfig(filePath):
         data['path'] = ConvertToAbsolutePath(targetPath, filePath)
     return data
 
+def ExecuteSubprocessRunAnyway(commands):
+    try:
+        result = subprocess.run(commands)
+        return result
+    except subprocess.CalledProcessError as e:
+        print(f"Error: {e}")
+    return
+
 def UpdateGitRepository(config):
     url = config['url']
     branch = config['branch']
@@ -78,7 +86,7 @@ def UpdateGitRepository(config):
     if not os.path.exists(targetPath):
         # if the local path does not exist
         # Clone the repository
-        subprocess.run(['git', 'clone', url, targetPath])
+        ExecuteSubprocessRunAnyway(['git', 'clone', url, targetPath])
     else:
         # if the local path exists, check if it's a git repository and if it's the same as the remote
         targetGitPath = os.path.join(targetPath, '.git')
@@ -109,24 +117,24 @@ def UpdateGitRepository(config):
             # Clone into a temp folder then move to targetPath
             tempPath = os.path.join(targetPath, "temp_path")
             shutil.rmtree(tempPath)
-            subprocess.run(['git', 'clone', '--no-checkout', url, tempPath])
+            ExecuteSubprocessRunAnyway(['git', 'clone', '--no-checkout', url, tempPath])
             shutil.move(os.path.join(tempPath, '.git'), targetPath)
             shutil.rmtree(tempPath)
     # Checkout the specified branch or tag
-    subprocess.run(['git', '-C', targetPath, 'checkout', branch, '--force'])
+    ExecuteSubprocessRunAnyway(['git', '-C', targetPath, 'checkout', branch, '--force'])
     # If in branch, force update to the latest version
-    subprocess.run(['git', '-C', targetPath, 'pull', '--force'])
+    ExecuteSubprocessRunAnyway(['git', '-C', targetPath, 'pull', '--force'])
     return
 
 def UpdateSvnRepository(config):
     url = config['url']
     targetPath = config['path']
     # Check out the repository from the specified URL and branch or tag
-    subprocess.run(['svn', 'checkout', '--force', url, '--revision', 'HEAD', targetPath])
+    ExecuteSubprocessRunAnyway(['svn', 'checkout', '--force', url, '--revision', 'HEAD', targetPath])
     # Force update to the latest version
-    subprocess.run(['svn', 'update', '--force', '--accept=theirs-full', targetPath])
+    ExecuteSubprocessRunAnyway(['svn', 'update', '--force', '--accept=theirs-full', targetPath])
     # Revert any changes if there is no update
-    subprocess.run(['svn', 'revert', '--depth', 'infinity', targetPath])
+    ExecuteSubprocessRunAnyway(['svn', 'revert', '--depth', 'infinity', targetPath])
     return
 
 def UpdateAllRepositories(configs):
@@ -137,12 +145,7 @@ def UpdateAllRepositories(configs):
             UpdateSvnRepository(config)
     return
 
-def ExecuteMain():
-    configPath = None
-    if len(sys.argv) > 1:
-        configPath = sys.argv[1]
-    else:
-        configPath = input("Input config path: ")
+def Execute(configPath):
     if os.path.isfile(configPath) and configPath.endswith('.json'):
         startConfig = ReadStartConfig(configPath)
         configs = RetrieveAndMergeRepositoryConfigs(startConfig['path'], startConfig['prefix'])
@@ -150,5 +153,14 @@ def ExecuteMain():
         print(configs)
     return
 
+def Main():
+    configPath = None
+    if len(sys.argv) > 1:
+        configPath = sys.argv[1]
+    else:
+        configPath = input("Input config path: ")
+        Execute(configPath)
+    return
+
 if __name__ == "__main__":
-    ExecuteMain()
+    Main()
