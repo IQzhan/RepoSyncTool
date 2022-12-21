@@ -148,9 +148,13 @@ def UpdateAllRepositories(configs):
 def Execute(configPath):
     if os.path.isfile(configPath) and configPath.endswith('.json'):
         startConfig = ReadStartConfig(configPath)
+        print("Load repositories config: ")
+        print(startConfig)
         configs = RetrieveAndMergeRepositoryConfigs(startConfig['path'], startConfig['prefix'])
-        UpdateAllRepositories(configs)
+        print("Update repositories: ")
         print(configs)
+        UpdateAllRepositories(configs)
+        print("Update repositories complete")
     return
 
 def Main():
@@ -159,7 +163,7 @@ def Main():
         configPath = sys.argv[1]
     else:
         configPath = input("Input config path: ")
-        Execute(configPath)
+    Execute(configPath)
     return
 
 if __name__ == "__main__":
