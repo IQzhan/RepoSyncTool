@@ -32,23 +32,19 @@ def ExtractRepositoryConfigs(filePath):
                 print(f"Error: Invalid repository type '{repoType}' in file '{filePath}'")
                 continue
             url = config['url']
-            remote = config['remote']
-            if remote == '' or remote == None:
-                remote = 'origin'
-            branch = config['branch']
-            if branch == '' or branch == None:
-                branch = 'main'
+            # if remote key is not exist, use 'origin' as default
+            remote = config.get('remote', 'origin')
+            # if branch key is not exist, use 'master' as default
+            branch = config.get('branch', 'master')
             path = ConvertToAbsolutePath(config['path'], filePath)
-            version = config['version']
+            # if version key is not exist, use 0 as default
+            version = config.get('version', 0)
             # version must be number
-            if version == '' or version == None:
-                version = 0
-            else:
-                try:
-                    version = int(version)
-                except ValueError:
-                    print(f"Error: Invalid version '{version}' in file '{filePath}'")
-                    continue
+            try:
+                version = int(version)
+            except ValueError:
+                print(f"Error: Invalid version '{version}' in file '{filePath}'")
+                continue
             configs.append({
                 'type': repoType,
                 'url': url,
