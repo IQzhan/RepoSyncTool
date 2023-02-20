@@ -28,13 +28,31 @@ def ExtractRepositoryConfigs(filePath):
         data = json.load(f)
         for config in data:
             repoType = config['type']
+            if repoType != 'git' and repoType != 'svn':
+                print(f"Error: Invalid repository type '{repoType}' in file '{filePath}'")
+                continue
             url = config['url']
+            remote = config['remote']
+            if remote == '' or remote == None:
+                remote = 'origin'
             branch = config['branch']
+            if branch == '' or branch == None:
+                branch = 'main'
             path = ConvertToAbsolutePath(config['path'], filePath)
             version = config['version']
+            # version must be number
+            if version == '' or version == None:
+                version = 0
+            else:
+                try:
+                    version = int(version)
+                except ValueError:
+                    print(f"Error: Invalid version '{version}' in file '{filePath}'")
+                    continue
             configs.append({
                 'type': repoType,
                 'url': url,
+                'remote': remote,
                 'branch': branch,
                 'path': path,
                 'version': version,
@@ -80,6 +98,7 @@ def ExecuteSubprocessRunAnyway(commands):
 
 def UpdateGitRepository(config):
     url = config['url']
+    remote = config['remote']
     branch = config['branch']
     targetPath = config['path']
     # check if the local path exists
@@ -96,7 +115,7 @@ def UpdateGitRepository(config):
             isRepo = False
             try:
                 repoUrlOutput = subprocess.run(
-                    ['git', '-C', targetPath, 'config', '--get', 'remote.origin.url'],
+                    ['git', '-C', targetPath, 'config', '--get', 'remote.' + remote + '.url'],
                     stdout=subprocess.PIPE,
                     check=True,
                 )
@@ -123,7 +142,7 @@ def UpdateGitRepository(config):
     # Checkout the specified branch or tag
     ExecuteSubprocessRunAnyway(['git', '-C', targetPath, 'checkout', branch, '--force'])
     # If in branch, force update to the latest version
-    ExecuteSubprocessRunAnyway(['git', '-C', targetPath, 'pull', '--force'])
+    ExecuteSubprocessRunAnyway(['git', '-C', targetPath, 'pull', remote, branch, '--force'])
     return
 
 def UpdateSvnRepository(config):
