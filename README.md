@@ -3,7 +3,8 @@ Create a json file named '\<config_name\>.json'
 ```json
 {
     "path" : "<repositories config files path>",
-    "prefix" : "<prefix of repositories config filenames>"
+    "prefix" : "<prefix of repositories config filenames>",
+    "rootPath": "<root path of project>"
 }
 ```
 
@@ -13,16 +14,19 @@ Create repositories config files in '\<path\>' named '\<prefix\>\<name\>.json'
     {
         "type": "git",
         "url": "<git url>",
-        "path": "<relative or absolute local path>",
+        "remote": "<remote name>",
         "branch": "<branch or tag name>",
+        "path": "<{rootPath}/relative or absolute local path>",
         "version": <integer as version>
     },
     {
         "type": "svn",
         "url": "<svn url>",
-        "path": "<relative or absolute local path>",
+        "reversion": "<reversion name>",
+        "path": "<{rootPath}/relative or absolute local path>",
         "version": <integer as version>
     }
+    ...
 ]
 ```
 Then execute script.
