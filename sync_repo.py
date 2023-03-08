@@ -4,115 +4,17 @@ import json
 import subprocess
 import shutil
 
-# Function to convert a path to an absolute path
+
 def ConvertToAbsolutePath(path, configFilePath):
+    """Function to convert a path to an absolute path"""
     if os.path.isabs(path):
         return path
     else:
         return os.path.abspath(os.path.join(os.path.dirname(configFilePath), path))
 
-# Function to find all '<prefix><name>.json' files in the specified path
-def FindRepositoriesFiles(path, prefix):
-    repositoriesFiles = []
-    for root, dirs, files in os.walk(path):
-        for file in files:
-            filePath = os.path.join(root, file)
-            if os.path.isfile(filePath) and file.startswith(prefix) and file.endswith('.json'):
-                repositoriesFiles.append(filePath)
-    return repositoriesFiles
 
-# Function to extract repository configuration from a '<prefix><name>.json' file
-def ExtractRepositoryConfigs(filePath, rootPath):
-    configs = []
-    with open(filePath, 'r') as f:
-        data = json.load(f)
-        for config in data:
-            repoType = config['type']
-            if repoType != 'git' and repoType != 'svn':
-                print(
-                    f"Error: Invalid repository type '{repoType}' in file '{filePath}'")
-                continue
-            url = config['url']
-            # if remote key is not exist, use 'origin' as default
-            remote = config.get('remote', 'origin')
-            # if branch key is not exist, use 'master' as default
-            branch = config.get('branch', 'master')
-            # if revision key is not exist, use 'HEAD' as default
-            revision = config.get('revision', 'HEAD')
-            # get path and convert to absolute path
-            try:
-                path = config['path']
-            except KeyError:
-                print(f"Error: Missing path in file '{filePath}'")
-                continue
-            # replace '{rootPath}' with rootPath
-            path = path.replace('{rootPath}', rootPath)
-            path = ConvertToAbsolutePath(path, filePath)
-            # if version key is not exist, use 0 as default
-            version = config.get('version', 0)
-            # version must be number
-            try:
-                version = int(version)
-            except ValueError:
-                print(
-                    f"Error: Invalid version '{version}' in file '{filePath}'")
-                continue
-            thisConfig = {
-                'type': repoType,
-                'url': url,
-                'path': path,
-                'version': version,
-            }
-            if repoType == 'git':
-                thisConfig['remote'] = remote
-                thisConfig['branch'] = branch
-            elif repoType == 'svn':
-                thisConfig['revision'] = revision
-            configs.append(thisConfig)
-    return configs
-
-# Function to merge repository configurations with the same repository url and target path
-def MergeRepositoryConfigs(configs):
-    mergedConfigs = {}
-    for config in configs:
-        path = config['path']
-        key = path
-        if key in mergedConfigs:
-            versionGreater = mergedConfigs[key]['version'] - config['version']
-            if versionGreater <= 0:
-                mergedConfigs[key] = config
-        else:
-            mergedConfigs[key] = config
-    return list(mergedConfigs.values())
-
-# Main function to retrieve and merge repository configurations
-def RetrieveAndMergeRepositoryConfigs(path, prefix, rootPath):
-    configs = []
-    repositories_files = FindRepositoriesFiles(path, prefix)
-    for file in repositories_files:
-        configs += ExtractRepositoryConfigs(file, rootPath)
-    return MergeRepositoryConfigs(configs)
-
-# Function to read the start config file
-def ReadStartConfig(filePath):
-    with open(filePath, 'r') as f:
-        data = json.load(f)
-        # get target path and convert to absolute path for later use
-        try:
-            path = data['path']
-        except KeyError:
-            print(f"Error: Missing path in file '{filePath}'")
-            return None
-        data['path'] = ConvertToAbsolutePath(path, filePath)
-        # if prefix key is not exist, use '' as default(no prefix) for later use
-        data['prefix'] = data.get('prefix', '')
-        # get root path and convert to absolute path for later use
-        rootPath = data.get('rootPath', '')
-        data['rootPath'] = ConvertToAbsolutePath(rootPath, filePath)
-    return data
-
-# Function to call console command
 def ExecuteSubprocessRunAnyway(commands):
+    """Function to call console commands and ignore errors"""
     try:
         result = subprocess.run(commands)
         return result
@@ -120,8 +22,26 @@ def ExecuteSubprocessRunAnyway(commands):
         print(f"Error: {e}")
     return
 
-# Function to update git repository
+
+def UpdateSvnRepository(config):
+    """Function to update svn repository"""
+    url = config['url']
+    targetPath = config['path']
+    revision = config['revision']
+    # Check out the repository from the specified URL and branch or tag
+    ExecuteSubprocessRunAnyway(
+        ['svn', 'checkout', '--force', url, '--revision', revision, targetPath])
+    # Force update to the latest version
+    ExecuteSubprocessRunAnyway(
+        ['svn', 'update', '--force', '--accept=theirs-full', targetPath])
+    # Revert any changes if there is no update
+    ExecuteSubprocessRunAnyway(
+        ['svn', 'revert', '--depth', 'infinity', targetPath])
+    return
+
+
 def UpdateGitRepository(config):
+    """Function to update git repository"""
     url = config['url']
     remote = config['remote']
     branch = config['branch']
@@ -174,24 +94,86 @@ def UpdateGitRepository(config):
         ['git', '-C', targetPath, 'pull', remote, branch, '--force'])
     return
 
-# Function to update svn repository
-def UpdateSvnRepository(config):
-    url = config['url']
-    targetPath = config['path']
-    revision = config['revision']
-    # Check out the repository from the specified URL and branch or tag
-    ExecuteSubprocessRunAnyway(
-        ['svn', 'checkout', '--force', url, '--revision', revision, targetPath])
-    # Force update to the latest version
-    ExecuteSubprocessRunAnyway(
-        ['svn', 'update', '--force', '--accept=theirs-full', targetPath])
-    # Revert any changes if there is no update
-    ExecuteSubprocessRunAnyway(
-        ['svn', 'revert', '--depth', 'infinity', targetPath])
-    return
 
-# Function to update all repositories
+def MergeRepositoryConfigs(configs):
+    """Function to merge repository configurations with the same repository url and target path"""
+    mergedConfigs = {}
+    for config in configs:
+        path = config['path']
+        key = path
+        if key in mergedConfigs:
+            versionGreater = mergedConfigs[key]['version'] - config['version']
+            if versionGreater <= 0:
+                mergedConfigs[key] = config
+        else:
+            mergedConfigs[key] = config
+    return list(mergedConfigs.values())
+
+
+def ExtractRepositoryConfigs(filePath, rootPath):
+    """Function to extract repository configuration from a '<prefix><name>.json' file"""
+    configs = []
+    with open(filePath, 'r') as f:
+        data = json.load(f)
+        for config in data:
+            repoType = config['type']
+            if repoType != 'git' and repoType != 'svn':
+                print(
+                    f"Error: Invalid repository type '{repoType}' in file '{filePath}'")
+                continue
+            url = config['url']
+            # if remote key is not exist, use 'origin' as default
+            remote = config.get('remote', 'origin')
+            # if branch key is not exist, use 'master' as default
+            branch = config.get('branch', 'master')
+            # if revision key is not exist, use 'HEAD' as default
+            revision = config.get('revision', 'HEAD')
+            # get path and convert to absolute path
+            try:
+                path = config['path']
+            except KeyError:
+                print(f"Error: Missing path in file '{filePath}'")
+                continue
+            # replace '{rootPath}' with rootPath
+            path = path.replace('{rootPath}', rootPath)
+            path = ConvertToAbsolutePath(path, filePath)
+            # if version key is not exist, use 0 as default
+            version = config.get('version', 0)
+            # version must be number
+            try:
+                version = int(version)
+            except ValueError:
+                print(
+                    f"Error: Invalid version '{version}' in file '{filePath}'")
+                continue
+            thisConfig = {
+                'type': repoType,
+                'url': url,
+                'path': path,
+                'version': version,
+            }
+            if repoType == 'git':
+                thisConfig['remote'] = remote
+                thisConfig['branch'] = branch
+            elif repoType == 'svn':
+                thisConfig['revision'] = revision
+            configs.append(thisConfig)
+    return configs
+
+
+def FindRepositoriesFiles(path, prefix):
+    """Function to find all '<prefix><name>.json' files in the specified path"""
+    repositoriesFiles = []
+    for root, dirs, files in os.walk(path):
+        for file in files:
+            filePath = os.path.join(root, file)
+            if os.path.isfile(filePath) and file.startswith(prefix) and file.endswith('.json'):
+                repositoriesFiles.append(filePath)
+    return repositoriesFiles
+
+
 def UpdateAllRepositories(configs):
+    """Function to update all repositories"""
     for config in configs:
         if config['type'] == 'git':
             UpdateGitRepository(config)
@@ -199,8 +181,37 @@ def UpdateAllRepositories(configs):
             UpdateSvnRepository(config)
     return
 
-# Main function to execute the script
+
+def RetrieveAndMergeRepositoryConfigs(path, prefix, rootPath):
+    """Main function to retrieve and merge repository configurations"""
+    configs = []
+    repositories_files = FindRepositoriesFiles(path, prefix)
+    for file in repositories_files:
+        configs += ExtractRepositoryConfigs(file, rootPath)
+    return MergeRepositoryConfigs(configs)
+
+
+def ReadStartConfig(filePath):
+    """Function to read the start config file"""
+    with open(filePath, 'r') as f:
+        data = json.load(f)
+        # get target path and convert to absolute path for later use
+        try:
+            path = data['path']
+        except KeyError:
+            print(f"Error: Missing path in file '{filePath}'")
+            return None
+        data['path'] = ConvertToAbsolutePath(path, filePath)
+        # if prefix key is not exist, use '' as default(no prefix) for later use
+        data['prefix'] = data.get('prefix', '')
+        # get root path and convert to absolute path for later use
+        rootPath = data.get('rootPath', '')
+        data['rootPath'] = ConvertToAbsolutePath(rootPath, filePath)
+    return data
+
+
 def Execute(configPath):
+    """Main function to execute the script"""
     if os.path.isfile(configPath) and configPath.endswith('.json'):
         startConfig = ReadStartConfig(configPath)
         if startConfig is None:
@@ -215,7 +226,9 @@ def Execute(configPath):
         print("Update repositories complete")
     return
 
+
 def Main():
+    """Main function"""
     configPath = None
     if len(sys.argv) > 1:
         configPath = sys.argv[1]
@@ -223,6 +236,7 @@ def Main():
         configPath = input("Input config path: ")
     Execute(configPath)
     return
+
 
 if __name__ == "__main__":
     Main()
