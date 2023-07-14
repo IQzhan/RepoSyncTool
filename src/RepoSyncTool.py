@@ -85,7 +85,7 @@ def UpdateGitRepository(config):
     # Checkout the specified branch or tag
     Cmd(['git', '-C', targetPath, 'checkout', branch, '--force'])
     # If in branch, force update to the latest version
-    Cmd(['git', '-C', targetPath, 'pull', remote, branch, '--force'])
+    Cmd(['git', '-C', targetPath, 'pull', '--no-edit', remote, branch, '--force'])
     return
 
 
